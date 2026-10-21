@@ -27,7 +27,7 @@ const SETTINGS_KEY = "uart-viewer.settings";
 const DEFAULTS = {
   port: "",
   baud: 115200,
-  font: "Cascadia Mono",
+  font: "monospace",
   fontPt: 10,
   bufferSize: 100000,
   timestamps: true,
@@ -100,9 +100,42 @@ function setFontPt(pt) {
 function applyFont() {
   lineHeight = Math.ceil(((settings.fontPt * 4) / 3) * 1.4);
   const root = document.documentElement.style;
-  root.setProperty("--font", JSON.stringify(settings.font));
+  // Generic families must remain unquoted to select the platform's default.
+  root.setProperty("--font", settings.font === "monospace" ? "monospace" : JSON.stringify(settings.font));
   root.setProperty("--font-size", settings.fontPt + "pt");
   root.setProperty("--lh", lineHeight + "px");
+}
+
+function initFontMenu() {
+  const menu = $("font");
+  const context = document.createElement("canvas").getContext("2d");
+  // Compare against different fallbacks: an absent font uses each fallback's
+  // metrics, while an installed font supplies its own metrics in both cases.
+  // document.fonts.check() also returns true for nonexistent system fonts.
+  const samples = ["mmmmmmmmWWWWiiiiiiii", "0123456789 .,:;+-_/"];
+  const fallbacks = ["serif", "monospace"];
+  const widths = (family) => {
+    context.font = `72px ${family}`;
+    return samples.map((text) => context.measureText(text).width);
+  };
+  const baseline = context && fallbacks.map(widths);
+  const available = (font) => font === "monospace" || !context || fallbacks.some((fallback, i) =>
+    widths(`${JSON.stringify(font)}, ${fallback}`).some((width, j) =>
+      Math.abs(width - baseline[i][j]) > 0.01));
+
+  // Keep an installed saved font even if it isn't in the built-in shortlist.
+  if (!Array.from(menu.options).some((option) => option.value === settings.font)) {
+    menu.add(new Option(settings.font, settings.font));
+  }
+  for (const option of Array.from(menu.options)) {
+    if (!available(option.value)) option.remove();
+  }
+  // Ensure the menu and the rendered font agree if a saved font is unavailable.
+  menu.value = settings.font;
+  if (!menu.value) {
+    settings.font = "monospace";
+    menu.value = settings.font;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -504,7 +537,7 @@ function updatePortTitle() {
 function setConnected(value) {
   connected = value;
   const btn = $("connect");
-  btn.textContent = value ? "Disconnect" : "Connect";
+  btn.querySelector("span").textContent = value ? "Disconnect" : "Connect";
   btn.classList.toggle("connected", value);
   $("port").disabled = value;
   $("baud").disabled = value;
@@ -596,6 +629,7 @@ async function saveBuffer() {
 // Wiring
 
 function init() {
+  initFontMenu();
   $("baud").value = settings.baud;
   updateNumDisplay($("baud"));
   $("font").value = settings.font;
@@ -613,6 +647,10 @@ function init() {
   $("clear").onclick = clearLines;
   $("save").onclick = saveBuffer;
   $("send").onclick = sendLine;
+
+  document.addEventListener("dragstart", (e) => {
+    if (!e.target.closest?.(".msg, input, textarea")) e.preventDefault();
+  });
 
   $("filter").oninput = (e) => setFilter(e.target.value);
   $("filter").addEventListener("keydown", (e) => {

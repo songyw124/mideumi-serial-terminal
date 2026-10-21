@@ -8,9 +8,13 @@
 </head>
 <body>
   <header class="toolbar">
-    <div class="group">
+    <div class="group connection-controls">
       <select id="port" title="Serial port"></select>
-      <button id="refresh" title="Refresh port list">&#x27F3;</button>
+      <button id="refresh" title="Refresh port list" aria-label="Refresh port list">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <path d="M20 7v5h-5M20 12a8 8 0 1 0-2.3 5.7"/>
+        </svg>
+      </button>
       <div class="numbox" title="Baud rate">
         <div class="num-field">
           <input id="baud" class="num" inputmode="numeric" spellcheck="false" autocomplete="off">
@@ -20,10 +24,7 @@
         <button id="baudPick" class="num-pick menu-toggle" title="Common baud rates" tabindex="-1">&#x25BE;</button>
         <div id="baudMenu" class="menu" hidden></div>
       </div>
-      <button id="connect" class="primary">Connect</button>
-    </div>
-
-    <div class="group">
+      <button id="connect" class="primary"><span>Connect</span></button>
       <button id="clear" class="danger" title="Clear (Ctrl+L)">Clear</button>
       <button id="save" title="Save buffer to file">Save&hellip;</button>
     </div>
@@ -39,12 +40,17 @@
     </div>
 
     <div class="group">
-      <select id="font" title="Font">
+      <select id="font" title="Font (available local fonts)">
+        <option value="monospace">System monospace</option>
+        <option>Menlo</option>
+        <option>Monaco</option>
         <option>Cascadia Mono</option>
         <option>Consolas</option>
         <option>Lucida Console</option>
         <option>Courier New</option>
-        <option value="monospace">System monospace</option>
+        <option>DejaVu Sans Mono</option>
+        <option>Liberation Mono</option>
+        <option>Noto Sans Mono</option>
       </select>
       <div class="numbox" title="Font size (Up/Down or Ctrl+wheel)">
         <input id="fontSize" class="numtext" inputmode="decimal" spellcheck="false" autocomplete="off">

@@ -13,7 +13,7 @@
   --sys: #b48cff;
 
   /* Set from main.js */
-  --font: "Cascadia Mono";
+  --font: monospace;
   --font-size: 13px;
   --lh: 18px;
 }
@@ -42,13 +42,28 @@ html, body {
   height: 100%;
   background: var(--bg);
   color: var(--text);
-  font: 13px "Segoe UI", system-ui, sans-serif;
+  font: 13px system-ui, sans-serif;
 }
 
 body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Only editable fields and log messages participate in text selection. */
+input, textarea, .msg {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+button, select, label, .unit, .num-display, #status {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .toolbar, footer {
@@ -93,12 +108,26 @@ button, select, input {
 
 
 button { cursor: pointer; background: var(--panel); }
-button:hover { border-color: var(--accent); }
+button:enabled:hover { border-color: var(--accent); }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-button.primary:hover { filter: brightness(1.12); }
+button.primary:enabled:hover { filter: brightness(1.12); }
 button.primary.connected { background: var(--error); border-color: var(--error); }
 button.danger { color: var(--error); }
-button.danger:hover { border-color: var(--error); }
+button.danger:enabled:hover { border-color: var(--error); }
+
+/* Explicit disabled styling keeps the state visible across native webviews. */
+button:disabled, select:disabled, input:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Reserve the wider label's intrinsic width using the current system font. */
+#connect { display: inline-grid; }
+#connect > span, #connect::after { grid-area: 1 / 1; }
+#connect::after { content: "Disconnect"; visibility: hidden; }
+
+#refresh { display: inline-flex; align-items: center; justify-content: center; }
+#refresh svg { flex: none; pointer-events: none; }
 
 #filter.active {
   border-color: var(--accent);
@@ -199,7 +228,11 @@ input.invalid, #filter.active.invalid { border-color: var(--error); }
 .menu button:hover { background: var(--accent); color: #fff; }
 .menu button.active { font-weight: 600; }
 
-#port { width: 14em; text-overflow: ellipsis; }
+/* Keep connection actions together at narrow window sizes. Only the port
+   selector yields width; its selected label must not set a minimum width. */
+.connection-controls { min-width: 0; max-width: 100%; }
+.connection-controls > :not(#port) { flex-shrink: 0; }
+#port { width: 14em; min-width: 0; flex: 0 1 14em; text-overflow: ellipsis; }
 
 #view {
   flex: 1;
@@ -228,8 +261,18 @@ input.invalid, #filter.active.invalid { border-color: var(--error); }
   overflow: hidden;
 }
 
-/* Not selectable, so drag-select/copy only picks up the message text */
-.ts { flex: none; color: var(--muted); margin-right: 1.2ch; white-space: pre; user-select: none; }
+/* Keep timestamps upright, including inside italic system-message rows.
+   WebKit needs the prefixed selection rule (macOS/Linux Tauri webviews). */
+.ts {
+  flex: none;
+  color: var(--muted);
+  margin-right: 1.2ch;
+  white-space: pre;
+  font-style: normal;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
 .msg { white-space: pre; }
 
 /* Wrapping: character-level breaks (spaces included), continuation rows indented under the message */

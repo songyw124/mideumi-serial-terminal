@@ -57,7 +57,7 @@ pub struct SerialState(Mutex<Option<Connection>>);
 #[tauri::command]
 pub fn list_ports() -> Result<Vec<PortInfo>, String> {
     let ports = serialport::available_ports().map_err(|e| e.to_string())?;
-    Ok(ports
+    Ok(preferred_ports(ports, cfg!(target_os = "macos"))
         .into_iter()
         .map(|p| {
             let description = match p.port_type {
@@ -70,6 +70,58 @@ pub fn list_ports() -> Result<Vec<PortInfo>, String> {
             PortInfo { name: p.port_name, description }
         })
         .collect())
+}
+
+/// macOS exposes dial-in (tty) and callout (cu) paths for the same port.
+/// Prefer callout for this app, but retain tty ports with no matching callout.
+fn preferred_ports(
+    ports: Vec<serialport::SerialPortInfo>,
+    macos: bool,
+) -> Vec<serialport::SerialPortInfo> {
+    if !macos {
+        return ports;
+    }
+    let callouts: std::collections::HashSet<String> = ports
+        .iter()
+        .filter_map(|p| p.port_name.strip_prefix("/dev/cu.").map(str::to_owned))
+        .collect();
+    ports
+        .into_iter()
+        .filter(|p| {
+            p.port_name
+                .strip_prefix("/dev/tty.")
+                .map_or(true, |suffix| !callouts.contains(suffix))
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod port_tests {
+    use super::*;
+
+    fn ports(names: &[&str]) -> Vec<serialport::SerialPortInfo> {
+        names.iter().map(|name| serialport::SerialPortInfo {
+            port_name: (*name).into(),
+            port_type: SerialPortType::Unknown,
+        }).collect()
+    }
+
+    #[test]
+    fn macos_prefers_callout_only_for_exact_pairs() {
+        let result = preferred_ports(ports(&[
+            "/dev/tty.usb1", "/dev/cu.usb1", "/dev/tty.usb10",
+            "/dev/cu.usb2", "/dev/tty.Bluetooth", "/dev/cu.Bluetooth",
+        ]), true);
+        assert_eq!(result.iter().map(|p| p.port_name.as_str()).collect::<Vec<_>>(),
+            ["/dev/cu.usb1", "/dev/tty.usb10", "/dev/cu.usb2", "/dev/cu.Bluetooth"]);
+    }
+
+    #[test]
+    fn other_platforms_keep_all_ports_and_order() {
+        let names = ["COM1", "COM10", "/dev/ttyUSB0", "/dev/ttyACM0", "/dev/tty.usb1", "/dev/cu.usb1"];
+        let result = preferred_ports(ports(&names), false);
+        assert_eq!(result.iter().map(|p| p.port_name.as_str()).collect::<Vec<_>>(), names);
+    }
 }
 
 #[tauri::command]
