@@ -54,6 +54,25 @@ body {
   -webkit-user-drag: none;
 }
 
+/* Center the macOS title independently of AppKit's native title placement.
+   Equal padding reserves room for native traffic lights without shifting text. */
+#windowTitlebar { display: none; }
+.macos #windowTitlebar {
+  display: flex;
+  flex: 0 0 32px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 90px;
+  background: var(--panel);
+  cursor: default;
+}
+#windowTitle {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
 /* Only editable fields and log messages participate in text selection. */
 input, textarea, .msg {
   -webkit-user-select: text;

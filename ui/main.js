@@ -2,6 +2,12 @@ const { invoke, Channel } = window.__TAURI__.core;
 const dialog = window.__TAURI__.dialog;
 const $ = (id) => document.getElementById(id);
 
+// This desktop webview reports MacIntel on both Intel and Apple Silicon Macs.
+// Overlay/hiddenTitle are macOS-only Tauri options; other OSes keep native chrome.
+const isMac = navigator.platform.startsWith("Mac");
+document.documentElement.classList.toggle("macos", isMac);
+$("windowTitle").textContent = document.title;
+
 // First matching rule colours the line. Edit to taste.
 const HIGHLIGHTS = [
   { re: /error|fail|fault|assert|hardfault/i, cls: "hl-error" },

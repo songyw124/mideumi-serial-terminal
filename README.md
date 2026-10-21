@@ -71,3 +71,6 @@ memory-constrained device such as a Raspberry Pi. For retention planning,
 100,000 lines represent about 16.7 minutes at 100 lines/second or 2.8 hours at
 10 lines/second. Filtering scans retained lines, and complex regular expressions
 can be slow. No fixed line count guarantees responsiveness for every workload.
+
+On macOS, the title is centered in a custom draggable title area while retaining
+the native window buttons. Windows and Linux keep their native title bars.
