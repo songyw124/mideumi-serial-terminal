@@ -32,9 +32,9 @@ An existing draft can be retried from the same commit if a build fails. If the
 code changes, delete the failed draft and its tag before retrying that version,
 or increment the version. Only publish once all build jobs succeed.
 
-The workflow also supports pushes of existing version tags (`v*`), checking that
-the tag matches the version in `Cargo.toml`. The manual Actions button is the
-recommended website-only route; do not publish an empty release first.
+The workflow runs only through **Actions → Build release → Run workflow**.
+Publishing the draft and creating its version tag do not trigger another build.
+Do not publish an empty release first; let the manual workflow create the draft.
 
 ## Signing
 

@@ -2,14 +2,11 @@ name: Build release
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - 'v*'
 
 permissions:
   contents: write
 
-# A manual run and a tag push must not upload to the same draft concurrently.
+# Serialize manual release runs so they cannot upload to the same draft concurrently.
 concurrency:
   group: desktop-release
   cancel-in-progress: false
