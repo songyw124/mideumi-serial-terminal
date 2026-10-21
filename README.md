@@ -1,6 +1,11 @@
-# UART Viewer
+# Mideumi Serial Terminal
 
 Small serial debug viewer for the cell cycler. Tauri 2 + Rust backend, plain HTML/CSS/JS frontend (no npm, no build step).
+
+The application and window name is **Mideumi Serial Terminal**; the Rust package
+and executable name is `mideumi-serial-terminal`. macOS display metadata is also
+provided in `Info.plist` for the Dock and packaged app. Restart a rebuilt app to
+see name changes; an already running executable retains its previous name.
 
 ## Run
 
@@ -10,7 +15,7 @@ cargo run --release  # faster, no console window
 ```
 
 Building an installer needs the Tauri CLI once: `cargo install tauri-cli --version "^2"`, then `cargo tauri build`.
-The UART Viewer icon source is `icons/icon.png`, with PNG, Windows ICO, and macOS ICNS variants in `icons/`. Regenerate with `cargo tauri icon icons/icon.png`.
+The app icon source is `icons/icon.png`, with PNG, Windows ICO, and macOS ICNS variants in `icons/`. Regenerate with `cargo tauri icon icons/icon.png`.
 
 ## Layout
 

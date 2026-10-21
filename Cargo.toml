@@ -1,7 +1,7 @@
 [package]
-name = "uart-viewer"
+name = "mideumi-serial-terminal"
 version = "0.1.0"
-description = "Serial debug viewer for the cell cycler"
+description = "Mideumi Serial Terminal"
 edition = "2021"
 
 [build-dependencies]

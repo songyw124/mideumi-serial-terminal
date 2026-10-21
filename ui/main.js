@@ -22,7 +22,7 @@ const OVERSCAN = 20; // extra lines rendered above/below the visible area
 const FONT_PT_MIN = 6;
 const FONT_PT_MAX = 36;
 const FONT_PT_STEP = 0.5;
-const SETTINGS_KEY = "uart-viewer.settings";
+const SETTINGS_KEY = "mideumi-serial-terminal.settings";
 
 const DEFAULTS = {
   port: "",
@@ -69,7 +69,8 @@ const rows = $("rows");
 
 function loadSettings() {
   try {
-    const stored = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}");
+    const stored = JSON.parse(localStorage.getItem(SETTINGS_KEY)
+      ?? localStorage.getItem("uart-viewer.settings") ?? "{}");
     delete stored.fontSize; // old px setting, replaced by fontPt
     return { ...DEFAULTS, ...stored };
   } catch {
