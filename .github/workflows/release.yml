@@ -51,10 +51,33 @@ jobs:
             } catch (error) {
               if (error.status !== 404) throw error;
             }
+            const filename = (suffix) => "`Mideumi.Serial.Terminal_" + tag.slice(1) + "_" + suffix + "`";
+            const body = [
+              "Download the package matching your operating system:",
+              "",
+              "- **Windows — Intel/AMD 64-bit**",
+              "  - " + filename("x64-setup.exe") + " — Standard installer; recommended for most users.",
+              "  - " + filename("x64_en-US.msi") + " — Alternative Windows Installer package. You only need one installer.",
+              "",
+              "- **macOS — Apple Silicon (M1 and newer)**",
+              "  - " + filename("aarch64.dmg") + " — Recommended download.",
+              "  - " + filename("aarch64.app.tar.gz") + " — Compressed application bundle.",
+              "",
+              "- **macOS — Intel**",
+              "  - " + filename("x64.dmg") + " — Recommended download.",
+              "  - " + filename("x64.app.tar.gz") + " — Compressed application bundle.",
+              "",
+              "- **Linux — Intel/AMD 64-bit**",
+              "  - " + filename("amd64.deb") + " — Package for Ubuntu/Debian.",
+              "  - " + filename("amd64.AppImage") + " — Alternative application package; make executable before launching.",
+              "",
+              "- **Linux — ARM64 / Raspberry Pi**",
+              "  - " + filename("arm64.deb") + " — Package for compatible 64-bit Ubuntu/Debian/Raspberry Pi desktop systems. Not for 32-bit Raspberry Pi OS.",
+            ].join("\n");
             const { data } = await github.rest.repos.createRelease({
               owner, repo, tag_name: tag, target_commitish: context.sha,
               name: `Mideumi Serial Terminal ${tag}`,
-              body: 'Download the installer for your operating system below.\n\nInitial builds: macOS uses ad-hoc signing and is not notarized; Windows installers are unsigned.',
+              body,
               draft: true, prerelease: tag.includes('-')
             });
             return data.id;
