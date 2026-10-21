@@ -389,10 +389,32 @@ function makeRow(line) {
   }
   const msg = document.createElement("span");
   msg.className = "msg";
-  msg.textContent = line.text;
+  appendMessageText(msg, line.text);
   div.appendChild(msg);
   rendered.set(line.seq, div);
   return div;
+}
+
+// Called only for visible rows. Use text nodes rather than parsing serial data
+// as HTML; marks must preserve the original text and monospace layout.
+function appendMessageText(msg, text) {
+  if (!filterRe) {
+    msg.textContent = text;
+    return;
+  }
+  const matches = new RegExp(filterRe.source, "gi");
+  let end = 0;
+  for (const match of text.matchAll(matches)) {
+    // Anchors/lookarounds may match no characters. matchAll advances safely;
+    // there is no visible text to mark for those matches.
+    if (!match[0].length) continue;
+    if (match.index > end) msg.append(document.createTextNode(text.slice(end, match.index)));
+    const mark = document.createElement("mark");
+    mark.textContent = match[0];
+    msg.append(mark);
+    end = match.index + match[0].length;
+  }
+  if (end < text.length) msg.append(document.createTextNode(text.slice(end)));
 }
 
 function formatTime(ms) {
@@ -611,8 +633,8 @@ async function saveBuffer() {
   const d = new Date();
   const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}-${formatTime(d).replace(/[:.]/g, "").slice(0, 6)}`;
   const path = await dialog.save({
-    defaultPath: `uart-${stamp}.log`,
-    filters: [{ name: "Log", extensions: ["log", "txt"] }],
+    defaultPath: `serial-log-${stamp}.txt`,
+    filters: [{ name: "Text files", extensions: ["txt"] }],
   });
   if (!path) return;
   const contents = currentView()

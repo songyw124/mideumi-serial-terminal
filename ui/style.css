@@ -173,6 +173,7 @@ input.invalid, #filter.active.invalid { border-color: var(--error); }
 .numtext { width: 5ch; }
 .num:not(:focus) { color: transparent; }
 .num-display {
+  color: var(--text);
   position: absolute;
   inset: 0;
   padding: 3px 4px 3px 8px;
@@ -274,6 +275,12 @@ input.invalid, #filter.active.invalid { border-color: var(--error); }
   -webkit-user-drag: none;
 }
 .msg { white-space: pre; }
+.msg mark {
+  color: #1b1d21;
+  background: #ffe082;
+  font: inherit;
+  padding: 0;
+}
 
 /* Wrapping: character-level breaks (spaces included), continuation rows indented under the message */
 #view.wrap { overflow-x: hidden; }

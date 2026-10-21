@@ -28,7 +28,7 @@ The app icon source is `icons/icon.png`, with PNG, Windows ICO, and macOS ICNS v
 - Connect/disconnect, port refresh, any baud rate
 - Clear (Ctrl+L), save buffer to file (respects the filter and timestamp setting)
 - Buffer size (1k to 1M lines), font family/size (Ctrl+wheel to zoom)
-- PC-side timestamps, regex filter, keyword highlighting (`HIGHLIGHTS` in `ui/main.js`)
+- PC-side timestamps, regex filter with matching text highlighted, keyword highlighting (`HIGHLIGHTS` in `ui/main.js`)
 - Auto-scroll that pauses when you scroll up and resumes at the bottom
 - Send bar with line-ending choice and Up/Down history
 - Window position and size remembered between runs
@@ -57,3 +57,17 @@ Ctrl means the Control key; Command equivalents are not currently assigned.
 | Up, Page Up, or Home outside input/select/textarea fields | Pause auto-scroll |
 
 Connect/disconnect, refresh, and save have no app-defined shortcuts.
+
+## Buffer size
+
+The default is 100,000 lines. Only visible log rows are rendered, including search
+match highlights. Buffer capacity still affects memory, filtering and trimming
+costs; it is a line limit, not a memory limit. At 100 characters per line, 100,000
+lines contain about 10 million characters before JavaScript object, array and
+layout overhead. Very long lines can require substantially more memory.
+
+Keep 100,000 as a starting point for ordinary logs, or use 20,000–50,000 on a
+memory-constrained device such as a Raspberry Pi. For retention planning,
+100,000 lines represent about 16.7 minutes at 100 lines/second or 2.8 hours at
+10 lines/second. Filtering scans retained lines, and complex regular expressions
+can be slow. No fixed line count guarantees responsiveness for every workload.
