@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UART Viewer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="toolbar">
+    <div class="group">
+      <select id="port" title="Serial port"></select>
+      <button id="refresh" title="Refresh port list">&#x27F3;</button>
+      <div class="numbox" title="Baud rate">
+        <div class="num-field">
+          <input id="baud" class="num" inputmode="numeric" spellcheck="false" autocomplete="off">
+          <div class="num-display" aria-hidden="true"></div>
+        </div>
+        <span class="unit">bps</span>
+        <button id="baudPick" class="num-pick menu-toggle" title="Common baud rates" tabindex="-1">&#x25BE;</button>
+        <div id="baudMenu" class="menu" hidden></div>
+      </div>
+      <button id="connect" class="primary">Connect</button>
+    </div>
+
+    <div class="group">
+      <button id="clear" class="danger" title="Clear (Ctrl+L)">Clear</button>
+      <button id="save" title="Save buffer to file">Save&hellip;</button>
+    </div>
+
+    <div class="group grow">
+      <input id="filter" class="grow" placeholder="Filter (regex, case-insensitive, Esc clears)" spellcheck="false">
+    </div>
+
+    <div class="group">
+      <label><input type="checkbox" id="timestamps"> Time</label>
+      <label><input type="checkbox" id="wrap"> Wrap</label>
+      <label><input type="checkbox" id="follow"> Auto-scroll</label>
+    </div>
+
+    <div class="group">
+      <select id="font" title="Font">
+        <option>Cascadia Mono</option>
+        <option>Consolas</option>
+        <option>Lucida Console</option>
+        <option>Courier New</option>
+        <option value="monospace">System monospace</option>
+      </select>
+      <div class="numbox" title="Font size (Up/Down or Ctrl+wheel)">
+        <input id="fontSize" class="numtext" inputmode="decimal" spellcheck="false" autocomplete="off">
+        <span class="unit">pt</span>
+      </div>
+      <label title="Max lines kept in memory">Buffer
+        <div class="numbox">
+          <div class="num-field">
+            <input id="bufferSize" class="num" inputmode="numeric" spellcheck="false" autocomplete="off">
+            <div class="num-display" aria-hidden="true"></div>
+          </div>
+          <span class="unit">lines</span>
+        </div>
+      </label>
+    </div>
+  </header>
+
+  <div id="filterBar" class="filterbar" hidden>
+    <span>Filter <code id="filterText"></code> active: showing <span id="filterShown"></span> of <span id="filterTotal"></span> lines</span>
+    <button id="filterClear">Clear filter</button>
+  </div>
+
+  <main id="view">
+    <div id="spacer"></div>
+    <div id="rows"></div>
+  </main>
+
+  <footer>
+    <div class="group grow">
+      <input id="sendText" class="grow" placeholder="Send&hellip; (Enter to send, &uarr;/&darr; history)" spellcheck="false">
+      <div class="picker">
+        <button id="lineEnding" class="menu-toggle" title="Line ending appended when sending"></button>
+        <div id="lineEndingMenu" class="menu up" hidden></div>
+      </div>
+      <button id="send" class="primary">Send</button>
+    </div>
+    <div id="status"></div>
+  </footer>
+
+  <script src="main.js"></script>
+</body>
+</html>
