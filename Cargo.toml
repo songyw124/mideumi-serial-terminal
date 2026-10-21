@@ -1,6 +1,6 @@
 [package]
 name = "mideumi-serial-terminal"
-version = "0.1.0"
+version = "0.1.1"
 description = "Mideumi Serial Terminal"
 edition = "2021"
 
