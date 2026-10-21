@@ -21,7 +21,7 @@ jobs:
       tag: ${{ steps.version.outputs.tag }}
       release_id: ${{ steps.release.outputs.result }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Read and validate version
         id: version
         shell: python
@@ -39,7 +39,7 @@ jobs:
 
       - name: Create or reuse draft release
         id: release
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
         with:
@@ -85,10 +85,14 @@ jobs:
             runner: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             bundles: deb,appimage
+          - name: Linux ARM64 (Raspberry Pi)
+            runner: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+            bundles: deb
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       - uses: dtolnay/rust-toolchain@stable
@@ -117,4 +121,5 @@ jobs:
           tauriScript: tauri
           releaseId: ${{ needs.prepare.outputs.release_id }}
           tagName: ${{ needs.prepare.outputs.tag }}
-          args: --locked --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+          # Arguments after -- are forwarded to Cargo.
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} -- --locked
