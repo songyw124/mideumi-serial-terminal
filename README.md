@@ -44,6 +44,20 @@ Portable distribution skips installation but does not sign the executable.
 SmartScreen or company security policies may still warn or block it. Signing is
 a separate step; see [Windows code signing](https://v2.tauri.app/distribute/sign/windows/).
 
+## Windows installer location
+
+Run the `x64-setup.exe` installer interactively and use **Browse** on the
+**Choose Install Location** page to select the destination folder. The `.msi`
+installer also includes a destination-folder page. These use Tauri's standard
+[NSIS directory page](https://github.com/tauri-apps/tauri/blob/dev/crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi)
+and [WiX directory dialog](https://github.com/tauri-apps/tauri/blob/dev/crates/tauri-bundler/src/bundle/windows/msi/main.wxs).
+Silent/passive installs skip the interactive folder selection, and upgrades can
+reuse the existing installation directory.
+
+Changing the installation folder does not change the current user's saved
+settings location. The portable executable can simply be placed in the desired
+folder without running an installer.
+
 ## Saved settings
 
 Font family and size, buffer capacity, baud rate, timestamps, wrapping, and send

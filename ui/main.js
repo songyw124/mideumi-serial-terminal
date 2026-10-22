@@ -713,8 +713,11 @@ async function toggleConnection() {
   try {
     if (disconnecting) {
       await invoke("disconnect");
-      setConnected(false);
-      appendSystem("Disconnected");
+      // The reader's closed event may already have completed this transition.
+      if (connected) {
+        setConnected(false);
+        appendSystem("Disconnected");
+      }
       return;
     }
 
