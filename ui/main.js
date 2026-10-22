@@ -28,6 +28,7 @@ const OVERSCAN = 20; // extra lines rendered above/below the visible area
 const FONT_PT_MIN = 6;
 const FONT_PT_MAX = 36;
 const FONT_PT_STEP = 0.5;
+const TEXT_FIELDS = "input:not([type=checkbox]), textarea";
 const SETTINGS_KEY = "mideumi-serial-terminal.settings";
 
 const DEFAULTS = {
@@ -62,6 +63,7 @@ let connected = false;
 let rxBytes = 0;
 let txBytes = 0;
 let mouseDown = false;     // left button held in the view, i.e. probably selecting text
+let selectedUpTo = -1;     // "Select all": shown lines with seq up to this are selected; -1 when off
 const rendered = new Map(); // seq -> row element currently in the DOM
 const history = [];
 let historyPos = 0;
@@ -201,6 +203,7 @@ function clearLines() {
   rowEnd = 0;
   rxBytes = 0;
   txBytes = 0;
+  selectedUpTo = -1;
   setFollow(true);
   resetRows();
   updateStatus();
@@ -223,6 +226,7 @@ function setFilter(value) {
     }
   }
   filtered = filterRe ? lines.filter((l) => filterRe.test(l.text)) : [];
+  selectedUpTo = -1;
   rebuildTops();
   resetRows();
   updateStatus();
@@ -385,6 +389,7 @@ function render() {
 function makeRow(line) {
   const div = document.createElement("div");
   div.className = line.cls ? "row " + line.cls : "row";
+  if (line.seq <= selectedUpTo) div.classList.add("selected");
   const n = rowsOf(line);
   if (n > 1) div.style.setProperty("--rows", n);
   if (settings.timestamps) {
@@ -461,13 +466,14 @@ function commitBaud() {
   saveSettings();
 }
 
-// Opens a popup menu; items are { value, content (string or node), active }
+// Opens a popup menu; items are { value, content (string or node), active, disabled }
 function openMenu(menu, items, onPick) {
   closeMenus();
   menu.replaceChildren(
     ...items.map((it) => {
       const item = document.createElement("button");
       if (it.active) item.className = "active";
+      item.disabled = !!it.disabled;
       item.append(it.content);
       item.onclick = () => {
         onPick(it.value);
@@ -506,6 +512,54 @@ function toggleLineEndingMenu() {
     setLineEnding(value);
     saveSettings();
   });
+}
+
+// ---------------------------------------------------------------------------
+// Selection. "Select all" can't be a DOM selection, since only the rows near the view exist;
+// it marks the shown lines instead, and copying takes their text from the buffer.
+
+function selectAllLines() {
+  const shown = currentView();
+  if (!shown.length) return;
+  window.getSelection().removeAllRanges();
+  selectedUpTo = shown[shown.length - 1].seq;
+  resetRows();
+}
+
+function clearSelectAll() {
+  if (selectedUpTo < 0) return;
+  selectedUpTo = -1;
+  resetRows();
+}
+
+function hasViewSelection() {
+  const sel = window.getSelection();
+  return !sel.isCollapsed && view.contains(sel.anchorNode);
+}
+
+function openContextMenu(x, y) {
+  const menu = $("contextMenu");
+  const label = (text, keys) => {
+    const frag = document.createDocumentFragment();
+    const key = document.createElement("span");
+    key.className = "keys";
+    key.textContent = keys;
+    frag.append(text, key);
+    return frag;
+  };
+  const items = [
+    { value: "copy", content: label("Copy", isMac ? "⌘C" : "Ctrl+C"), disabled: selectedUpTo < 0 && !hasViewSelection() },
+    { value: "selectAll", content: label("Select all", isMac ? "⌘A" : "Ctrl+A"), disabled: !currentView().length },
+    { value: "clear", content: label("Clear", "Ctrl+L") },
+  ];
+  openMenu(menu, items, (action) => {
+    if (action === "copy") document.execCommand("copy"); // goes through the copy listener for "Select all"
+    else if (action === "selectAll") selectAllLines();
+    else clearLines();
+  });
+  // Open at the pointer, kept inside the window
+  menu.style.left = Math.max(0, Math.min(x, window.innerWidth - menu.offsetWidth - 4)) + "px";
+  menu.style.top = Math.max(0, Math.min(y, window.innerHeight - menu.offsetHeight - 4)) + "px";
 }
 
 function setLineEnding(value) {
@@ -609,7 +663,7 @@ async function toggleConnection() {
   try {
     await invoke("connect", { port: settings.port, baud: settings.baud, onEvent: channel });
     setConnected(true);
-    appendSystem(`Connected to ${settings.port} @ ${settings.baud} bps`);
+    appendSystem(`Connected to ${settings.port} at ${settings.baud} bps`);
   } catch (e) {
     appendSystem(`Connect failed: ${e}`);
   }
@@ -702,7 +756,9 @@ function init() {
 
   // Hold the view still while drag-selecting; keep auto-scroll off afterwards if something got selected
   view.addEventListener("mousedown", (e) => {
-    if (e.button === 0) mouseDown = true;
+    if (e.button !== 0) return;
+    mouseDown = true;
+    clearSelectAll();
   });
   document.addEventListener("mouseup", () => {
     if (!mouseDown) return;
@@ -745,10 +801,16 @@ function init() {
     if (!e.target.closest(".menu, .menu-toggle")) closeMenus();
   });
 
-  // Scrolling back to the bottom resumes auto-scroll; leaving it (e.g. dragging the scrollbar) pauses it
+  // Scrolling back down to the bottom resumes auto-scroll; leaving it (e.g. dragging the scrollbar) pauses it.
+  // Only a downward move resumes: a smooth scroll up starts within a line of the bottom, and resuming
+  // there would snap it right back, so it took several wheel notches to get away.
+  let lastScrollTop = view.scrollTop;
   view.addEventListener("scroll", () => {
     const atBottom = view.scrollTop + view.clientHeight >= view.scrollHeight - lineHeight;
-    if (atBottom !== follow) setFollow(atBottom);
+    const down = view.scrollTop > lastScrollTop;
+    lastScrollTop = view.scrollTop;
+    if (!follow && atBottom && down) setFollow(true);
+    else if (follow && !atBottom) setFollow(false);
     else scheduleRender();
   });
   new ResizeObserver(() => {
@@ -782,11 +844,37 @@ function init() {
     }
   });
 
+  // No browser menu (Reload, Print, ...): the log gets its own, text fields keep their native Cut/Copy/Paste
+  document.addEventListener("contextmenu", (e) => {
+    if (e.target.closest?.(TEXT_FIELDS)) return;
+    e.preventDefault();
+    if (view.contains(e.target)) openContextMenu(e.clientX, e.clientY);
+  });
+  // Clicking a menu item must not clear the text selection it is about to copy
+  $("contextMenu").addEventListener("mousedown", (e) => e.preventDefault());
+  document.addEventListener("copy", (e) => {
+    if (selectedUpTo < 0 || e.target.closest?.(TEXT_FIELDS)) return;
+    e.preventDefault();
+    const text = currentView()
+      .filter((l) => l.seq <= selectedUpTo)
+      .map((l) => l.text)
+      .join("\n");
+    e.clipboardData.setData("text/plain", text);
+  });
+
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeMenus();
+    if (e.key === "Escape") {
+      closeMenus();
+      clearSelectAll();
+    }
     if (e.ctrlKey && e.key.toLowerCase() === "l") {
       e.preventDefault();
       clearLines();
+    }
+    // Select all outside text fields means the log, not the whole page
+    if ((isMac ? e.metaKey : e.ctrlKey) && e.key.toLowerCase() === "a" && !e.target.closest?.(TEXT_FIELDS)) {
+      e.preventDefault();
+      selectAllLines();
     }
     // Scrolling up with the keyboard pauses auto-scroll too
     const inField = e.target.closest?.("input, select, textarea");

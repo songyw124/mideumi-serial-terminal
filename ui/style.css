@@ -11,6 +11,8 @@
   --ok: #6fd18a;
   --tx: #7ab8ff;
   --sys: #b48cff;
+  /* Select arrow: one triangle in --muted, shaped like the ▾ of the other pickers */
+  --caret: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0h10L5 6z' fill='%238a8f98'/%3E%3C/svg%3E");
 
   /* Set from main.js */
   --font: monospace;
@@ -32,6 +34,7 @@
     --ok: #237a3b;
     --tx: #1f5fbf;
     --sys: #7048c0;
+    --caret: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0h10L5 6z' fill='%236b717a'/%3E%3C/svg%3E");
   }
 }
 
@@ -132,14 +135,10 @@ select {
   appearance: none;
   min-height: 0;
   height: calc(1lh + 8px);
-  padding-right: 26px;
-  background-image:
-    linear-gradient(45deg, transparent 50%, currentColor 50%),
-    linear-gradient(135deg, currentColor 50%, transparent 50%);
-  background-position:
-    calc(100% - 13px) center,
-    calc(100% - 8px) center;
-  background-size: 5px 5px;
+  padding-right: 24px;
+  background-image: var(--caret);
+  background-position: calc(100% - 9px) center;
+  background-size: 7px 4px;
   background-repeat: no-repeat;
 }
 
@@ -265,18 +264,29 @@ input.invalid, #filter.active.invalid { border-color: var(--error); }
 }
 .menu button:hover { background: var(--accent); color: #fff; }
 .menu button.active { font-weight: 600; }
+.menu button:disabled { color: var(--muted); background: transparent; }
+/* Right-click menu of the log, placed at the pointer by main.js */
+.menu.context { position: fixed; top: 0; left: 0; right: auto; min-width: 12em; }
+.menu.context button { justify-content: space-between; gap: 2em; white-space: nowrap; }
+.menu.context .keys { color: var(--muted); }
+.menu.context button:hover:not(:disabled) .keys { color: inherit; }
 
 /* Keep connection actions together at narrow window sizes. Only the port
-   selector yields width; its selected label must not set a minimum width. */
-.connection-controls { min-width: 0; max-width: 100%; }
+   selector yields width; its selected label must not set a minimum width.
+   When the group has a toolbar row to itself, the port selector takes the spare width;
+   sharing a row, the filter's much larger grow factor leaves it practically none. */
+.connection-controls { min-width: 0; max-width: 100%; flex-grow: 1; }
+.toolbar > .grow { flex-grow: 1000; }
 .connection-controls > :not(#port) { flex-shrink: 0; }
-#port { width: 14em; min-width: 0; flex: 0 1 14em; text-overflow: ellipsis; }
+#port { width: 14em; min-width: 0; flex: 1 1 14em; text-overflow: ellipsis; }
 
 #view {
   flex: 1;
   position: relative;
-  overflow-x: auto;
-  overflow-y: scroll; /* always there, so the wrap width doesn't jump when the scrollbar appears */
+  /* Both always there: the wrap width and the view height must not depend on which lines are rendered,
+     or the view shakes when a long line enters or leaves the virtualized window */
+  overflow-x: scroll;
+  overflow-y: scroll;
   font-family: var(--font), monospace;
   font-size: var(--font-size);
 }
@@ -312,6 +322,7 @@ input.invalid, #filter.active.invalid { border-color: var(--error); }
   -webkit-user-drag: none;
 }
 .msg { white-space: pre; }
+.row.selected .msg { background: Highlight; color: HighlightText; }
 .msg mark {
   color: #1b1d21;
   background: #ffe082;
