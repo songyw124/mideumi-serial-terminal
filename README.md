@@ -70,8 +70,8 @@ use Save to export messages you want to keep.
 ## Features
 
 - Connect/disconnect, port refresh, any baud rate
-- Clear (Ctrl+L), save buffer to file (respects the filter and timestamp setting)
-- Buffer size (1k to 1M lines), font family/size (Ctrl+wheel to zoom)
+- Clear (Cmd+L on macOS, Ctrl+L on Windows/Linux), save buffer to file (respects the filter and timestamp setting)
+- Buffer size (1k to 1M lines), font family/size (Cmd+wheel on macOS, Ctrl+wheel on Windows/Linux to zoom)
 - PC-side timestamps, regex filter with matching text highlighted, keyword highlighting (`HIGHLIGHTS` in `ui/main.js`)
 - Auto-scroll that pauses when you scroll up and resumes at the bottom
 - Send bar with line-ending choice and Up/Down history
@@ -85,14 +85,20 @@ use Save to export messages you want to keep.
 
 ## Shortcuts
 
-These app-defined bindings are the same on Windows, macOS, and Linux. On macOS,
-Ctrl means the Control key; Command equivalents are not currently assigned.
+Use Command (Cmd) for app shortcuts on macOS; use Control
+(Ctrl) on Windows and Linux. Font wheel zoom uses Cmd on macOS and Ctrl on Windows/Linux.
 
 | Shortcut | Action |
 | --- | --- |
-| Ctrl+F | Focus the filter field and select its text |
-| Ctrl+L | Clear the log |
-| Ctrl+mouse wheel over the log | Change log font size |
+| Cmd+O (macOS), Ctrl+O (Windows/Linux) | Connect to the selected device |
+| Cmd+D (macOS), Ctrl+D (Windows/Linux) | Disconnect |
+| Cmd+S (macOS), Ctrl+S (Windows/Linux) | Save the log |
+| Cmd+F (macOS), Ctrl+F (Windows/Linux) | Focus the filter field and select its text |
+| Cmd+L (macOS), Ctrl+L (Windows/Linux) | Clear the log |
+| Cmd+wheel (macOS), Ctrl+wheel (Windows/Linux), over the log | Change log font size |
+| Cmd/Ctrl + `+` or `=` | Increase log font size by 0.5 pt |
+| Cmd/Ctrl + `-` | Decrease log font size by 0.5 pt |
+| Cmd/Ctrl + `0` | Reset log font size to 10 pt |
 | Enter in the send field | Send the message |
 | Up/Down in the send field | Navigate sent-message history |
 | Escape in the filter field | Clear the filter |
@@ -101,7 +107,16 @@ Ctrl means the Control key; Command equivalents are not currently assigned.
 | Enter in font-size, baud-rate, or buffer-size fields | Finish editing |
 | Up, Page Up, or Home outside input/select/textarea fields | Pause auto-scroll |
 
-Connect/disconnect, refresh, and save have no app-defined shortcuts.
+Refresh has no app-defined shortcut. Connect does nothing while connected;
+Disconnect does nothing while disconnected. Repeated requests are ignored while
+connecting, disconnecting, or saving.
+
+The macOS menu bar groups Connect, Disconnect and Save Log under File;
+Find, Clear Log and Refresh Devices under Terminal. Edit retains native editing
+commands. View contains Increase Font Size (Cmd++), Decrease Font Size (Cmd+-),
+Reset Font Size (Cmd+0), and Full Screen; Window retains standard window actions.
+Cmd+= also increases font size. macOS keyboard shortcuts activate their menu
+items, including the usual menu-bar highlight.
 
 ## Buffer size
 

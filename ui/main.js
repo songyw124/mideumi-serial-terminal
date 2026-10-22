@@ -5,6 +5,7 @@ const $ = (id) => document.getElementById(id);
 // This desktop webview reports MacIntel on both Intel and Apple Silicon Macs.
 // Overlay/hiddenTitle are macOS-only Tauri options; other OSes keep native chrome.
 const isMac = navigator.platform.startsWith("Mac");
+const shortcutModifier = isMac ? "⌘" : "Ctrl+";
 document.documentElement.classList.toggle("macos", isMac);
 $("windowTitle").textContent = document.title;
 
@@ -60,6 +61,10 @@ let viewWidth = 0;
 let follow = true;
 let renderQueued = false;
 let connected = false;
+let connectionBusy = false;
+let saving = false;
+let nativeMenuReady = false;
+let nativeMenuListening = false;
 let rxBytes = 0;
 let txBytes = 0;
 let mouseDown = false;     // left button held in the view, i.e. probably selecting text
@@ -555,9 +560,9 @@ function openContextMenu(x, y) {
     return frag;
   };
   const items = [
-    { value: "copy", content: label("Copy", isMac ? "⌘C" : "Ctrl+C"), disabled: selectedUpTo < 0 && !hasViewSelection() },
-    { value: "selectAll", content: label("Select all", isMac ? "⌘A" : "Ctrl+A"), disabled: !currentView().length },
-    { value: "clear", content: label("Clear", "Ctrl+L") },
+    { value: "copy", content: label("Copy", `${shortcutModifier}C`), disabled: selectedUpTo < 0 && !hasViewSelection() },
+    { value: "selectAll", content: label("Select all", `${shortcutModifier}A`), disabled: !currentView().length },
+    { value: "clear", content: label("Clear", `${shortcutModifier}L`) },
   ];
   openMenu(menu, items, (action) => {
     if (action === "copy") document.execCommand("copy"); // goes through the copy listener for "Select all"
@@ -571,7 +576,7 @@ function openContextMenu(x, y) {
 
 function setLineEnding(value) {
   settings.lineEnding = value in LINE_ENDINGS ? value : DEFAULTS.lineEnding;
-  $("lineEnding").textContent = LINE_ENDINGS[settings.lineEnding].label + " ▾";
+  $("lineEndingLabel").textContent = LINE_ENDINGS[settings.lineEnding].label;
 }
 
 function formatBytes(n) {
@@ -624,16 +629,66 @@ function updatePortTitle() {
   select.title = select.selectedOptions[0]?.text ?? "Serial port";
 }
 
+function syncMenuState() {
+  if (!isMac || !nativeMenuListening) return Promise.resolve();
+  return invoke("set_menu_state", { connected, busy: connectionBusy, saving })
+    .then(() => { nativeMenuReady = true; })
+    .catch((error) => {
+      // Keep keyboard shortcuts usable if native-menu setup fails.
+      nativeMenuReady = false;
+      console.warn("Could not update native menu state:", error);
+    });
+}
+
+async function performShortcut(action) {
+  if (isMac && nativeMenuReady) {
+    try {
+      if (await invoke("activate_menu_action", { action })) return;
+    } catch (error) {
+      console.warn("Could not activate native menu item:", error);
+    }
+  }
+  return performAction(action);
+}
+
+function performAction(action) {
+  switch (action) {
+    case "connect":
+      if (!connected && !connectionBusy) return toggleConnection();
+      break;
+    case "disconnect":
+      if (connected && !connectionBusy) return toggleConnection();
+      break;
+    case "save": return saveBuffer();
+    case "clear": return clearLines();
+    case "find":
+      closeMenus();
+      $("filter").focus();
+      $("filter").select();
+      break;
+    case "zoomIn": return setFontPt(settings.fontPt + FONT_PT_STEP);
+    case "zoomOut": return setFontPt(settings.fontPt - FONT_PT_STEP);
+    case "zoomReset": return setFontPt(DEFAULTS.fontPt);
+    case "refresh":
+      if (!connected && !connectionBusy) return refreshPorts();
+      break;
+  }
+}
+
 function setConnected(value) {
   connected = value;
   const btn = $("connect");
   btn.querySelector("span").textContent = value ? "Disconnect" : "Connect";
   btn.classList.toggle("connected", value);
-  $("port").disabled = value;
-  $("baud").disabled = value;
-  $("baudPick").disabled = value;
-  if (value) closeMenus();
-  $("refresh").disabled = value;
+  btn.title = value ? `Disconnect (${shortcutModifier}D)` : `Connect (${shortcutModifier}O)`;
+  btn.disabled = connectionBusy;
+  const locked = value || connectionBusy;
+  $("port").disabled = locked;
+  $("baud").disabled = locked;
+  $("baudPick").disabled = locked;
+  if (locked) closeMenus();
+  $("refresh").disabled = locked;
+  syncMenuState();
   updateStatus();
 }
 
@@ -651,28 +706,35 @@ function onSerialEvent(msg) {
 }
 
 async function toggleConnection() {
-  if (connected) {
-    setConnected(false);
-    await invoke("disconnect");
-    appendSystem("Disconnected");
-    return;
-  }
-
-  settings.port = $("port").value;
-  commitBaud();
-  if (!settings.port) {
-    appendSystem("No port selected");
-    return;
-  }
-
-  const channel = new Channel();
-  channel.onmessage = onSerialEvent;
+  if (connectionBusy) return;
+  const disconnecting = connected;
+  connectionBusy = true;
+  setConnected(connected);
   try {
+    if (disconnecting) {
+      await invoke("disconnect");
+      setConnected(false);
+      appendSystem("Disconnected");
+      return;
+    }
+
+    settings.port = $("port").value;
+    commitBaud();
+    if (!settings.port) {
+      appendSystem("No port selected");
+      return;
+    }
+
+    const channel = new Channel();
+    channel.onmessage = onSerialEvent;
     await invoke("connect", { port: settings.port, baud: settings.baud, onEvent: channel });
     setConnected(true);
     appendSystem(`Connected to ${settings.port} at ${settings.baud} bps`);
   } catch (e) {
-    appendSystem(`Connect failed: ${e}`);
+    appendSystem(`${disconnecting ? "Disconnect" : "Connect"} failed: ${e}`);
+  } finally {
+    connectionBusy = false;
+    setConnected(connected);
   }
 }
 
@@ -697,21 +759,29 @@ async function sendLine() {
 }
 
 async function saveBuffer() {
-  const d = new Date();
-  const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}-${formatTime(d).replace(/[:.]/g, "").slice(0, 6)}`;
-  const path = await dialog.save({
-    defaultPath: `serial-log-${stamp}.txt`,
-    filters: [{ name: "Text files", extensions: ["txt"] }],
-  });
-  if (!path) return;
-  const contents = currentView()
-    .map((l) => (settings.timestamps ? formatTime(l.ts) + "  " : "") + l.text)
-    .join("\n");
+  if (saving) return;
+  saving = true;
+  $("save").disabled = true;
+  syncMenuState();
   try {
+    const d = new Date();
+    const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}-${formatTime(d).replace(/[:.]/g, "").slice(0, 6)}`;
+    const path = await dialog.save({
+      defaultPath: `serial-log-${stamp}.txt`,
+      filters: [{ name: "Text files", extensions: ["txt"] }],
+    });
+    if (!path) return;
+    const contents = currentView()
+      .map((l) => (settings.timestamps ? formatTime(l.ts) + "  " : "") + l.text)
+      .join("\n");
     await invoke("save_text", { path, contents: contents + "\n" });
     appendSystem(`Saved ${currentView().length.toLocaleString()} lines to ${path}`);
   } catch (e) {
     appendSystem(`Save failed: ${e}`);
+  } finally {
+    saving = false;
+    $("save").disabled = false;
+    syncMenuState();
   }
 }
 
@@ -720,6 +790,10 @@ async function saveBuffer() {
 
 function init() {
   initFontMenu();
+  $("clear").title = `Clear (${shortcutModifier}L)`;
+  $("filter").title = `Find/filter (${shortcutModifier}F)`;
+  $("save").title = `Save log (${shortcutModifier}S)`;
+  $("fontSize").parentElement.title = `Font size (${shortcutModifier}+, ${shortcutModifier}−, ${shortcutModifier}0; ${isMac ? "Cmd" : "Ctrl"}+wheel; Up/Down)`;
   $("baud").value = settings.baud;
   updateNumDisplay($("baud"));
   $("font").value = settings.font;
@@ -834,8 +908,8 @@ function init() {
   }).observe(view);
 
   view.addEventListener("wheel", (e) => {
-    if (e.ctrlKey) {
-      // Ctrl+wheel zooms the text
+    if (isMac ? e.metaKey : e.ctrlKey) {
+      // Follow the platform modifier: Command on macOS, Control elsewhere.
       e.preventDefault();
       setFontPt(settings.fontPt + (e.deltaY < 0 ? FONT_PT_STEP : -FONT_PT_STEP));
     } else if (e.deltaY < 0 && follow) {
@@ -875,23 +949,29 @@ function init() {
   });
 
   document.addEventListener("keydown", (e) => {
-    if (e.ctrlKey && e.key.toLowerCase() === "f") {
+    const primaryKey = isMac ? e.metaKey : e.ctrlKey;
+    const zoomAction = { "+": "zoomIn", "=": "zoomIn", "-": "zoomOut", "0": "zoomReset" }[e.key];
+    if (primaryKey && !e.altKey && zoomAction) {
+      // Plus can require Shift depending on the keyboard layout. Also accept
+      // the unshifted equals key. Prevent the webview's own page zoom.
       e.preventDefault();
-      closeMenus();
-      $("filter").focus();
-      $("filter").select();
+      performShortcut(zoomAction);
+      return;
+    }
+    const action = { o: "connect", d: "disconnect", s: "save", f: "find", l: "clear" }[e.key.toLowerCase()];
+    if (primaryKey && !e.altKey && !e.shiftKey && action) {
+      e.preventDefault();
+      // Consume the webview event and dispatch through the native menu on
+      // macOS. The menu event runs the action once and supplies menu feedback.
+      if (!e.repeat) performShortcut(action);
       return;
     }
     if (e.key === "Escape") {
       closeMenus();
       clearSelectAll();
     }
-    if (e.ctrlKey && e.key.toLowerCase() === "l") {
-      e.preventDefault();
-      clearLines();
-    }
     // Select all outside text fields means the log, not the whole page
-    if ((isMac ? e.metaKey : e.ctrlKey) && e.key.toLowerCase() === "a" && !e.target.closest?.(TEXT_FIELDS)) {
+    if (primaryKey && e.key.toLowerCase() === "a" && !e.target.closest?.(TEXT_FIELDS)) {
       e.preventDefault();
       selectAllLines();
     }
@@ -903,7 +983,15 @@ function init() {
   applyFont();
   relayout();
   refreshPorts();
-  updateStatus();
+  setConnected(connected);
+  if (isMac) {
+    window.__TAURI__.event.listen("terminal-action", ({ payload }) => performAction(payload))
+      .then(() => {
+        nativeMenuListening = true;
+        return syncMenuState();
+      })
+      .catch((error) => appendSystem(`Native menu setup failed: ${error}`));
+  }
 }
 
 init();

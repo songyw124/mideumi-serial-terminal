@@ -27,11 +27,15 @@
           <div class="num-display" aria-hidden="true"></div>
         </div>
         <span class="unit">bps</span>
-        <button id="baudPick" class="num-pick menu-toggle" title="Common baud rates" tabindex="-1">&#x25BE;</button>
+        <button id="baudPick" class="num-pick menu-toggle" title="Common baud rates" aria-label="Common baud rates" tabindex="-1">
+          <svg width="10" height="6" viewBox="0 0 10 6" fill="currentColor" aria-hidden="true" focusable="false">
+            <path d="M0 0h10L5 6z"/>
+          </svg>
+        </button>
         <div id="baudMenu" class="menu" hidden></div>
       </div>
       <button id="connect" class="primary"><span>Connect</span></button>
-      <button id="clear" class="danger" title="Clear (Ctrl+L)">Clear</button>
+      <button id="clear" class="danger" title="Clear log">Clear</button>
       <button id="save" title="Save buffer to file">Save&hellip;</button>
     </div>
 
@@ -58,7 +62,7 @@
         <option>Liberation Mono</option>
         <option>Noto Sans Mono</option>
       </select>
-      <div class="numbox" title="Font size (Up/Down or Ctrl+wheel)">
+      <div class="numbox" title="Font size">
         <input id="fontSize" class="numtext" inputmode="decimal" spellcheck="false" autocomplete="off">
         <span class="unit">pt</span>
       </div>
@@ -88,7 +92,12 @@
     <div class="group grow">
       <input id="sendText" class="grow" placeholder="Send&hellip; (Enter to send, &uarr;/&darr; history)" spellcheck="false">
       <div class="picker">
-        <button id="lineEnding" class="menu-toggle" title="Line ending appended when sending"></button>
+        <button id="lineEnding" class="menu-toggle" title="Line ending appended when sending">
+          <span id="lineEndingLabel">CR+LF</span>
+          <svg width="10" height="6" viewBox="0 0 10 6" fill="currentColor" aria-hidden="true" focusable="false">
+            <path d="M0 0h10L5 6z"/>
+          </svg>
+        </button>
         <div id="lineEndingMenu" class="menu up" hidden></div>
       </div>
       <button id="send" class="primary">Send</button>
