@@ -311,7 +311,7 @@ function measureCharsPerRow() {
 }
 
 // Re-lays out after anything that changes row sizes (font, wrap, width, timestamps), keeping the top line in place
-function relayout(change) {
+function relayout(change, immediate = false) {
   const anchor = !follow && tops.length ? indexAtRow(base() + view.scrollTop / lineHeight) : null;
   change?.();
   view.classList.toggle("wrap", settings.wrap);
@@ -319,11 +319,11 @@ function relayout(change) {
   if (newCpr !== cpr) {
     cpr = newCpr;
     rebuildTops();
-    resetRows();
   }
   spacer.style.height = (rowEnd - base()) * lineHeight + "px";
   if (anchor !== null) view.scrollTop = (tops[anchor] - base()) * lineHeight;
-  scheduleRender();
+  if (immediate) render();
+  else scheduleRender();
 }
 
 // ---------------------------------------------------------------------------
@@ -332,7 +332,10 @@ function relayout(change) {
 function scheduleRender() {
   if (renderQueued) return;
   renderQueued = true;
-  requestAnimationFrame(render);
+  requestAnimationFrame(() => {
+    renderQueued = false;
+    render();
+  });
 }
 
 function setFollow(value) {
@@ -349,7 +352,6 @@ function resetRows() {
 }
 
 function render() {
-  renderQueued = false;
   const shown = currentView();
   const b = base();
   spacer.style.height = (rowEnd - b) * lineHeight + "px";
@@ -373,6 +375,11 @@ function render() {
       el.remove();
       rendered.delete(seq);
     }
+  }
+  // Width changes only need new heights; keep the existing text and selection.
+  for (const line of want) {
+    const el = rendered.get(line.seq);
+    if (el) el.style.setProperty("--rows", rowsOf(line));
   }
   let i = 0;
   const head = document.createDocumentFragment();
@@ -816,9 +823,14 @@ function init() {
   new ResizeObserver(() => {
     if (view.clientWidth !== viewWidth) {
       viewWidth = view.clientWidth;
-      if (settings.wrap) relayout();
+      if (settings.wrap) {
+        // ResizeObserver runs after animation callbacks: finish the layout now,
+        // before paint, rather than showing stale positions for another frame.
+        relayout(undefined, true);
+        return;
+      }
     }
-    scheduleRender();
+    render();
   }).observe(view);
 
   view.addEventListener("wheel", (e) => {
@@ -863,6 +875,13 @@ function init() {
   });
 
   document.addEventListener("keydown", (e) => {
+    if (e.ctrlKey && e.key.toLowerCase() === "f") {
+      e.preventDefault();
+      closeMenus();
+      $("filter").focus();
+      $("filter").select();
+      return;
+    }
     if (e.key === "Escape") {
       closeMenus();
       clearSelectAll();

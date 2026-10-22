@@ -56,7 +56,8 @@ jobs:
               "Download the package matching your operating system:",
               "",
               "- **Windows — Intel/AMD 64-bit**",
-              "  - " + filename("x64-setup.exe") + " — Standard installer; recommended for most users.",
+              "  - " + filename("x64-portable.exe") + " — **Recommended download.** Run directly without installing. Requires Microsoft Edge WebView2 Runtime; Windows may still warn about the unsigned executable.",
+              "  - " + filename("x64-setup.exe") + " — Standard installer.",
               "  - " + filename("x64_en-US.msi") + " — Alternative Windows Installer package. You only need one installer.",
               "",
               "- **macOS — Apple Silicon (M1 and newer)**",
@@ -143,3 +144,18 @@ jobs:
           tagName: ${{ needs.prepare.outputs.tag }}
           # Arguments after -- are forwarded to Cargo.
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} -- --locked
+      # Build separately without bundling so Tauri embeds the correct bundle metadata.
+      - name: Build and upload portable Windows executable
+        if: runner.os == 'Windows'
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: '.'
+          tauriScript: tauri
+          releaseId: ${{ needs.prepare.outputs.release_id }}
+          tagName: ${{ needs.prepare.outputs.tag }}
+          releaseDraft: true
+          uploadPlainBinary: true
+          releaseAssetNamePattern: 'Mideumi.Serial.Terminal_[version]_x64-portable[ext]'
+          args: --target ${{ matrix.target }} --no-bundle -- --locked

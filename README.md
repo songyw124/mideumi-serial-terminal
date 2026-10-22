@@ -17,6 +17,50 @@ cargo run --release  # faster, no console window
 Building an installer needs the Tauri CLI once: `cargo install tauri-cli --version "^2"`, then `cargo tauri build`.
 The app icon source is `icons/icon.png`, with PNG, Windows ICO, and macOS ICNS variants in `icons/`. Regenerate with `cargo tauri icon icons/icon.png`.
 
+## Portable Windows executable
+
+Build a release executable without installing the Tauri CLI or creating an installer:
+
+```powershell
+cargo build --release
+```
+
+The portable app is `target\release\mideumi-serial-terminal.exe`. Copy that file
+to the destination PC and run it directly; the UI is embedded, so no source files,
+Rust installation, or `ui` folder are needed there. `cargo run --release` and
+`cargo tauri build` also produce the executable in that location when building
+for the default target. Explicit cross-compilation targets use
+`target\<target-triple>\release\` instead.
+
+The manual **Build release** GitHub Actions workflow also uploads
+`Mideumi.Serial.Terminal_<version>_x64-portable.exe` to the draft GitHub Release,
+alongside the Windows installers. Publish the draft when the builds are ready.
+
+The destination PC needs the Microsoft Edge WebView2 Runtime. An installer can
+set this up automatically; the portable executable requires it to be present.
+See [Tauri's WebView runtime documentation](https://v2.tauri.app/reference/webview-versions/).
+
+Portable distribution skips installation but does not sign the executable.
+SmartScreen or company security policies may still warn or block it. Signing is
+a separate step; see [Windows code signing](https://v2.tauri.app/distribute/sign/windows/).
+
+## Saved settings
+
+Font family and size, buffer capacity, baud rate, timestamps, wrapping, and send
+line ending are saved when changed and restored on the next run. The serial
+port is saved when connecting. Window size and position are also remembered.
+
+Preferences use the app's WebView local storage, and window state uses the
+window-state plugin's app configuration file. Both live in the current user's
+app data, rather than next to the executable. Running a replacement portable
+executable under the same Windows account retains these settings as long as
+the app identifier stays the same and its app data is not cleared. Moving the
+executable to another PC or account does not transfer the settings.
+
+The log contents, send history, active filter, and auto-scroll state are kept
+only for the current session. Saving the buffer capacity does not save the log;
+use Save to export messages you want to keep.
+
 ## Layout
 
 - `src/serial.rs`: port listing, connect/disconnect, send, and the reader thread. It splits input into lines, timestamps them, and pushes them to the UI in ~30 ms batches over a Tauri channel.
@@ -46,6 +90,7 @@ Ctrl means the Control key; Command equivalents are not currently assigned.
 
 | Shortcut | Action |
 | --- | --- |
+| Ctrl+F | Focus the filter field and select its text |
 | Ctrl+L | Clear the log |
 | Ctrl+mouse wheel over the log | Change log font size |
 | Enter in the send field | Send the message |
