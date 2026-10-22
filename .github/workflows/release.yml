@@ -144,18 +144,18 @@ jobs:
           tagName: ${{ needs.prepare.outputs.tag }}
           # Arguments after -- are forwarded to Cargo.
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} -- --locked
-      # Build separately without bundling so Tauri embeds the correct bundle metadata.
+      # Upload one explicit file: tauri-action also discovers existing installers.
       - name: Build and upload portable Windows executable
         if: runner.os == 'Windows'
-        uses: tauri-apps/tauri-action@v1
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          projectPath: '.'
-          tauriScript: tauri
-          releaseId: ${{ needs.prepare.outputs.release_id }}
-          tagName: ${{ needs.prepare.outputs.tag }}
-          releaseDraft: true
-          uploadPlainBinary: true
-          releaseAssetNamePattern: 'Mideumi.Serial.Terminal_[version]_x64-portable[ext]'
-          args: --target ${{ matrix.target }} --no-bundle -- --locked
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          BUILD_TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          tauri build --target "$BUILD_TARGET" --no-bundle -- --locked
+          output_dir="target/$BUILD_TARGET/release"
+          portable="$output_dir/Mideumi.Serial.Terminal_${RELEASE_TAG#v}_x64-portable.exe"
+          cp "$output_dir/mideumi-serial-terminal.exe" "$portable"
+          gh release upload "$RELEASE_TAG" "$portable" --repo "$GITHUB_REPOSITORY" --clobber

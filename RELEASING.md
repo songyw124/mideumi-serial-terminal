@@ -13,7 +13,8 @@ package entry in `Cargo.lock` at the same version. `tauri.conf.json` inherits it
 3. Wait for the preparation job and all five build jobs to succeed.
 4. Open **Releases**. The workflow creates a draft named
    **Mideumi Serial Terminal v0.1.0**, tied to the exact commit that was built.
-5. Confirm the draft has Windows x64 installers (`.exe`, `.msi`), macOS Apple
+5. Confirm the draft has the Windows x64 portable executable (`x64-portable.exe`)
+   and installers (`x64-setup.exe`, `.msi`), macOS Apple
    Silicon and Intel downloads (`.dmg` and app archives), and Linux x64 packages
    (`.deb`, `.AppImage`), plus the Linux ARM64 `.deb` for Raspberry Pi.
    Download and test the relevant installers.
@@ -49,13 +50,20 @@ Automatic in-app updates are not enabled by this workflow.
 
 Cancel the failed run before starting a replacement. Commit the workflow fix to
 the default branch, delete the incomplete draft release, and delete its version
-tag if one exists. Keep the version at `0.1.0` if it has never been published.
+tag if one exists. Keep the current version if it has never been published.
 Then use **Actions → Build release → Run workflow** on the updated branch.
 Do not use **Re-run jobs** on the old run: that uses the old commit and workflow.
 
 Tauri build arguments must put Cargo options after the `--` separator, for example
 `--target x86_64-pc-windows-msvc --bundles nsis,msi -- --locked`. The separate
 `cargo test --locked` command already uses Cargo directly and needs no separator.
+
+The Windows portable step builds with `--no-bundle` and uploads only the exact
+`x64-portable.exe` file through GitHub CLI. The installer step uses tauri-action;
+using it again for the portable upload can pick up the earlier installers and
+rename them to the portable filename, causing a duplicate-asset error. If this
+happened, the failed draft's `x64-portable.exe` is an installer, not the portable
+app; replace the failed draft using the recovery steps above before publishing.
 
 ## Raspberry Pi / Linux ARM64
 
