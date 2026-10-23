@@ -26,6 +26,7 @@ const LINE_ENDINGS = {
   crlf: { label: "CR+LF", text: "\r\n" },
 };
 const OVERSCAN = 20; // extra lines rendered above/below the visible area
+const RECONNECT_INTERVAL_MS = 1000;
 const FONT_PT_MIN = 6;
 const FONT_PT_MAX = 36;
 const FONT_PT_STEP = 0.5;
@@ -62,6 +63,7 @@ let follow = true;
 let renderQueued = false;
 let connected = false;
 let connectionBusy = false;
+let reconnectTimer = null; // set while waiting for a lost port to come back
 let saving = false;
 let nativeMenuReady = false;
 let nativeMenuListening = false;
@@ -678,9 +680,11 @@ function performAction(action) {
 function setConnected(value) {
   connected = value;
   const btn = $("connect");
-  btn.querySelector("span").textContent = value ? "Disconnect" : "Connect";
-  btn.classList.toggle("connected", value);
-  btn.title = value ? `Disconnect (${shortcutModifier}D)` : `Connect (${shortcutModifier}O)`;
+  btn.querySelector("span").textContent = value ? "Disconnect" : reconnectTimer ? "Cancel" : "Connect";
+  btn.classList.toggle("connected", value || !!reconnectTimer);
+  btn.title = value
+    ? `Disconnect (${shortcutModifier}D)`
+    : reconnectTimer ? "Stop waiting for the port to come back" : `Connect (${shortcutModifier}O)`;
   btn.disabled = connectionBusy;
   const locked = value || connectionBusy;
   $("port").disabled = locked;
@@ -700,13 +704,61 @@ function onSerialEvent(msg) {
     if (connected) {
       setConnected(false);
       appendSystem(msg.error ? `Disconnected: ${msg.error}` : "Disconnected");
-      invoke("disconnect").catch(() => {});
+      const cleanup = invoke("disconnect").catch(() => {});
+      // Lost without the user asking (sleep, USB reset, unplugged): reopen it once it is back.
+      // While busy, the user is disconnecting and this event just got there first.
+      if (!connectionBusy) cleanup.then(startReconnect);
     }
   }
 }
 
+function startReconnect() {
+  if (reconnectTimer || connected) return;
+  reconnectTimer = setInterval(tryReconnect, RECONNECT_INTERVAL_MS);
+  appendSystem(`Waiting for ${settings.port} to come back`);
+  setConnected(false);
+}
+
+function stopReconnect() {
+  if (!reconnectTimer) return false;
+  clearInterval(reconnectTimer);
+  reconnectTimer = null;
+  setConnected(connected);
+  return true;
+}
+
+async function tryReconnect() {
+  if (connectionBusy) return;
+  // Not shown as busy: the attempt is short and would make the button flicker every second
+  connectionBusy = true;
+  try {
+    const ports = await invoke("list_ports");
+    if (!reconnectTimer || !ports.some((p) => p.name === settings.port)) return;
+    await openPort();
+    stopReconnect();
+    appendSystem(`Reconnected to ${settings.port} at ${settings.baud} bps`);
+    refreshPorts();
+  } catch {
+    // The port is listed before its driver is ready to open it; the next tick tries again
+  } finally {
+    connectionBusy = false;
+    setConnected(connected);
+  }
+}
+
+async function openPort() {
+  const channel = new Channel();
+  channel.onmessage = onSerialEvent;
+  await invoke("connect", { port: settings.port, baud: settings.baud, onEvent: channel });
+  setConnected(true);
+}
+
 async function toggleConnection() {
   if (connectionBusy) return;
+  if (stopReconnect()) {
+    appendSystem("Stopped waiting for the port");
+    return;
+  }
   const disconnecting = connected;
   connectionBusy = true;
   setConnected(connected);
@@ -728,10 +780,7 @@ async function toggleConnection() {
       return;
     }
 
-    const channel = new Channel();
-    channel.onmessage = onSerialEvent;
-    await invoke("connect", { port: settings.port, baud: settings.baud, onEvent: channel });
-    setConnected(true);
+    await openPort();
     appendSystem(`Connected to ${settings.port} at ${settings.baud} bps`);
   } catch (e) {
     appendSystem(`${disconnecting ? "Disconnect" : "Connect"} failed: ${e}`);
@@ -796,7 +845,7 @@ function init() {
   $("clear").title = `Clear (${shortcutModifier}L)`;
   $("filter").title = `Find/filter (${shortcutModifier}F)`;
   $("save").title = `Save log (${shortcutModifier}S)`;
-  $("fontSize").parentElement.title = `Font size (${shortcutModifier}+, ${shortcutModifier}−, ${shortcutModifier}0; ${isMac ? "Cmd" : "Ctrl"}+wheel; Up/Down)`;
+  $("fontSize").parentElement.title = `Font size (${shortcutModifier}+, ${shortcutModifier}−, ${shortcutModifier}0)`;
   $("baud").value = settings.baud;
   updateNumDisplay($("baud"));
   $("font").value = settings.font;
@@ -866,6 +915,12 @@ function init() {
       setFontPt(settings.fontPt + (e.key === "ArrowUp" ? FONT_PT_STEP : -FONT_PT_STEP));
     }
   });
+  // Wheel steps it once clicked into, so scrolling past the toolbar doesn't change it by accident
+  $("fontSize").addEventListener("wheel", (e) => {
+    if (document.activeElement !== e.target || !e.deltaY) return;
+    e.preventDefault();
+    setFontPt(settings.fontPt + (e.deltaY < 0 ? FONT_PT_STEP : -FONT_PT_STEP));
+  }, { passive: false });
 
   $("bufferSize").onchange = (e) => {
     settings.bufferSize = readNumBox(e.target, settings.bufferSize, 1000, 1000000);
